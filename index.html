@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+/* CSS goes here. */
+
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://d3js.org/topojson.v1.min.js"></script>
+<script src="http://d3js.org/queue.v1.min.js"></script>
+<script>
+
+var width = 800,
+    height = 600;
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .style("background-color", "rgb(200, 200, 200)");
+
+var t
+
+var color = d3.scale.quantize().range(["rgb(237, 248, 251)",
+                "rgb(178, 226, 226)",
+                "rgb(102, 194, 164)",
+                "rgb(44, 162, 95)",
+                "rgb(0, 109, 44)"
+            ]);
+            
+color.domain([0,10]);
+
+var projection = d3.geo.albers()
+    .scale(500)
+    .center([-98.97171, 39.67337])
+    .rotate([90, 0])
+    .parallels([20, 52])
+    .translate([width / 2, height / 2]);
+	
+var path = d3.geo.path()
+    .projection(projection);
+	
+	/*map RUCA_INT*/
+	
+
+	
+var etc;
+var features;
+
+
+//find the corners of the drawing area (used to scale the drawing):
+var box_extents = function(coords, projection) {
+    //Get the extents in raw form:
+    var xlims = d3.extent([].concat.apply([], coords.map(function(a) {return a.map(function(b) {return b[0]})})))
+    var ylims = d3.extent([].concat.apply([], coords.map(function(a) {return a.map(function(b) {return b[1]})})))
+    
+    //Project the corner points to pixels and return them
+    return [projection([xlims[1], ylims[1]]), projection([xlims[0], ylims[0]])];
+}
+	
+	
+queue()
+    .defer(d3.json, "tracts-topo.json")
+    .await(ready);
+	
+function ready(error, topology) {
+    features = topojson.feature(topology, topology.objects.tracts).features;
+    
+    
+    t=topology;
+
+//Find the extents of the plot area
+  var corners = box_extents(features.map(function(x) {return x.geometry.coordinates[0]}), projection);
+  var xrange = corners[0][0] - corners[1][0]
+  var yrange = corners[1][1] - corners[0][1]
+  svg.attr("height", yrange*width/xrange + 150).attr('width',width)
+
+  //Scale the figure to match the plot area
+  var sx = d3.scale.linear()
+    .domain([corners[1][0], corners[0][0]])
+    .range([5,width-15]);
+
+  var sy = d3.scale.linear()
+    .domain([corners[0][1], corners[1][1]])
+    .range([0,yrange*width/xrange]);
+
+  //Set up the scale, projection, and path functions:
+  var scale = function(a) {return [sx(a[0]), sy(a[1])]}    
+  proj = function(x) {return scale(projection(x))}
+  var path = d3.geo.path().projection(proj);
+
+
+
+
+  svg.selectAll("path")
+      .data(features)
+      .enter()
+      .append("path")
+      .attr("d", path)
+      .style("fill", function(d) {
+        var value = d.properties.RUCA_INT
+
+        if (value) {
+            return color(value);
+        } else {
+            return "#ccc";
+        }
+      });
+      
+  console.log("done!");
+};
+
+
+</script>
